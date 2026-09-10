@@ -1,0 +1,9 @@
+services:
+  weather:
+    build: .
+    container_name: weather-service
+    ports:
+      - "8000:8000"
+    environment:
+      - OWM_API_KEY=${OWM_API_KEY:-7c293e1f109af8afb6b48cf47e339922}
+    restart: unless-stopped

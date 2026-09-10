@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Погода · Weather Service</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="preconnect" href="https://openweathermap.org" />
+        <style>
+            body {
+                background: linear-gradient(
+                    160deg,
+                    #0f172a 0%,
+                    #1e3a8a 55%,
+                    #0ea5e9 100%
+                );
+                background-attachment: fixed;
+            }
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+            .spin {
+                animation: spin 0.8s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+    <body class="min-h-screen text-white">
+        <div class="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">
+                    🌤️ Погода
+                </h1>
+            </header>
+
+            <div class="glass rounded-2xl p-4 sm:p-6 shadow-xl mb-6">
+                <form id="search-form" class="flex flex-col sm:flex-row gap-3">
+                    <input
+                        id="city-input"
+                        type="text"
+                        placeholder="Введите город, например: Волгоград"
+                        class="flex-1 rounded-xl px-4 py-3 text-slate-900 bg-white/90 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    />
+                    <button
+                        type="submit"
+                        class="rounded-xl px-6 py-3 bg-sky-500 hover:bg-sky-400 active:scale-95 transition font-semibold shadow-lg"
+                    >
+                        Найти
+                    </button>
+                </form>
+            </div>
+
+            <div
+                id="current"
+                class="hidden glass rounded-2xl p-6 shadow-xl mb-8"
+            ></div>
+
+            <div class="glass rounded-2xl p-4 sm:p-6 shadow-xl">
+                <div class="flex flex-wrap gap-2 mb-4" id="tabs">
+                    <button
+                        data-tab="coldest"
+                        class="tab-btn rounded-lg px-4 py-2 text-sm font-medium transition"
+                    >
+                        🥶 Самые холодные
+                    </button>
+                    <button
+                        data-tab="hottest"
+                        class="tab-btn rounded-lg px-4 py-2 text-sm font-medium transition"
+                    >
+                        🔥 Самые жаркие
+                    </button>
+                    <button
+                        data-tab="humidity"
+                        class="tab-btn rounded-lg px-4 py-2 text-sm font-medium transition"
+                    >
+                        💧 Влажность
+                    </button>
+                </div>
+                <div
+                    id="ranking"
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                ></div>
+                <div
+                    id="pagination"
+                    class="hidden items-center justify-center gap-3 mt-5"
+                >
+                    <button
+                        id="prev-btn"
+                        class="rounded-lg px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium"
+                    >
+                        ← Назад
+                    </button>
+                    <span id="page-info" class="text-sm text-sky-200"></span>
+                    <button
+                        id="next-btn"
+                        class="rounded-lg px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium"
+                    >
+                        Вперёд →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const $ = (id) => document.getElementById(id);
+
+            function loader() {
+                return `<div class="flex justify-center py-6 col-span-full">
+        <div class="w-8 h-8 border-4 border-white/30 border-t-white rounded-full spin"></div></div>`;
+            }
+
+            function icon(code) {
+                return code
+                    ? `https://openweathermap.org/img/wn/${code}@2x.png`
+                    : "";
+            }
+
+            async function fetchJSON(url) {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || "Ошибка запроса");
+                }
+                return res.json();
+            }
+
+            $("search-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const city = $("city-input").value.trim();
+                if (!city) return;
+                const box = $("current");
+                box.classList.remove("hidden");
+                box.innerHTML = loader();
+                try {
+                    const w = await fetchJSON(
+                        `/api/weather?city=${encodeURIComponent(city)}`,
+                    );
+                    box.innerHTML = `
+          <div class="flex flex-col sm:flex-row items-center gap-4">
+            <img src="${icon(w.icon)}" alt="" class="w-24 h-24 -my-4" />
+            <div class="text-center sm:text-left flex-1">
+              <h2 class="text-2xl font-bold">${w.city}${w.country ? ", " + w.country : ""}</h2>
+              <p class="text-sky-200">${w.description}</p>
+            </div>
+            <div class="text-center">
+              <div class="text-5xl font-bold">${w.temp}°</div>
+              <div class="text-sky-200 text-sm">ощущается ${w.feels_like}°</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 text-center text-sm">
+            <div class="bg-white/10 rounded-xl py-3"><div class="text-sky-200">💧 Влажность</div><div class="font-semibold text-lg">${w.humidity}%</div></div>
+            <div class="bg-white/10 rounded-xl py-3"><div class="text-sky-200">💨 Ветер</div><div class="font-semibold text-lg">${w.wind_speed} м/с</div></div>
+            <div class="bg-white/10 rounded-xl py-3"><div class="text-sky-200">🌡 Мин/Макс</div><div class="font-semibold text-lg">${w.temp_min}°/${w.temp_max}°</div></div>
+            <div class="bg-white/10 rounded-xl py-3"><div class="text-sky-200">📊 Давление</div><div class="font-semibold text-lg">${w.pressure}</div></div>
+          </div>`;
+                } catch (err) {
+                    box.innerHTML = `<p class="text-center text-rose-200 py-4">❌ ${err.message}</p>`;
+                }
+            });
+
+            let activeTab = "coldest";
+            const PAGE_SIZE = 12;
+            const pages = { coldest: 1, hottest: 1, humidity: 1 };
+            let totalPages = 1;
+
+            function setActive() {
+                document.querySelectorAll(".tab-btn").forEach((b) => {
+                    const on = b.dataset.tab === activeTab;
+                    b.className =
+                        "tab-btn rounded-lg px-4 py-2 text-sm font-medium transition " +
+                        (on
+                            ? "bg-white text-slate-900 shadow"
+                            : "bg-white/10 hover:bg-white/20 text-white");
+                });
+            }
+
+            function metricFor(w) {
+                if (activeTab === "humidity")
+                    return `<span class="text-2xl font-bold">${w.humidity}%</span>`;
+                return `<span class="text-2xl font-bold">${w.temp}°</span>`;
+            }
+
+            async function loadRanking() {
+                const box = $("ranking");
+                box.innerHTML = loader();
+                setActive();
+                $("pagination").classList.add("hidden");
+                $("pagination").classList.remove("flex");
+                try {
+                    const page = pages[activeTab];
+                    const data = await fetchJSON(
+                        `/api/${activeTab}?page=${page}&size=${PAGE_SIZE}`,
+                    );
+                    pages[activeTab] = data.page;
+                    totalPages = data.pages;
+                    const offset = (data.page - 1) * data.size;
+                    box.innerHTML = data.items
+                        .map(
+                            (w, i) => `
+          <div class="bg-white/10 rounded-xl p-3 flex items-center gap-3">
+            <span class="text-lg font-bold text-sky-200 w-8 text-center">${offset + i + 1}</span>
+            <img src="${icon(w.icon)}" alt="" class="w-12 h-12" />
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold truncate">${w.city}${w.country ? ", " + w.country : ""}</div>
+              <div class="text-xs text-sky-200 truncate">${w.description}</div>
+            </div>
+            ${metricFor(w)}
+          </div>`,
+                        )
+                        .join("");
+
+                    $("page-info").textContent = `Стр. ${data.page} из ${data.pages} · всего ${data.total}`;
+                    $("prev-btn").disabled = data.page <= 1;
+                    $("next-btn").disabled = data.page >= data.pages;
+                    $("pagination").classList.remove("hidden");
+                    $("pagination").classList.add("flex");
+                } catch (err) {
+                    box.innerHTML = `<p class="col-span-full text-center text-rose-200 py-4">❌ ${err.message}</p>`;
+                }
+            }
+
+            $("tabs").addEventListener("click", (e) => {
+                const btn = e.target.closest(".tab-btn");
+                if (!btn) return;
+                activeTab = btn.dataset.tab;
+                loadRanking();
+            });
+
+            $("prev-btn").addEventListener("click", () => {
+                if (pages[activeTab] > 1) {
+                    pages[activeTab]--;
+                    loadRanking();
+                }
+            });
+
+            $("next-btn").addEventListener("click", () => {
+                if (pages[activeTab] < totalPages) {
+                    pages[activeTab]++;
+                    loadRanking();
+                }
+            });
+
+            loadRanking();
+        </script>
+    </body>
+</html>
